@@ -1,33 +1,29 @@
-# Changes to the minimum golang version must also be replicated in
-# scripts/build_avalanche.sh
-# scripts/local.Dockerfile
-# Dockerfile (here)
-# README.md
-# go.mod
-# ============= Compilation Stage ================
-FROM golang:1.18.5-buster AS builder
-RUN apt-get update && apt-get install -y --no-install-recommends bash=5.0-4 git=1:2.20.1-2+deb10u3 make=4.2.1-1.2 gcc=4:8.3.0-1 musl-dev=1.1.21-2 ca-certificates=20200601~deb10u2 linux-headers-amd64
+FROM ubuntu:20.04 as builder
 
-WORKDIR /build
-# Copy and download avalanche dependencies using go mod
-COPY go.mod .
-COPY go.sum .
-RUN go mod download
+RUN ln -snf /usr/share/zoneinfo/$CONTAINER_TIMEZONE /etc/localtime && echo $CONTAINER_TIMEZONE > /etc/timezone
 
-# Copy the code into the container
-COPY . .
+RUN DEBIAN_FRONTEND=noninteractive \
+	apt-get update && apt-get install -y build-essential tzdata pkg-config \
+	wget clang git
 
-# Build avalanchego and plugins
-RUN ./scripts/build.sh
+RUN wget https://go.dev/dl/go1.19.1.linux-amd64.tar.gz
+RUN rm -rf /usr/local/go && tar -C /usr/local -xzf go1.19.1.linux-amd64.tar.gz
+ENV PATH=$PATH:/usr/local/go/bin
 
-# ============= Cleanup Stage ================
-FROM debian:11-slim AS execution
+ADD . /avalanchego
+WORKDIR /avalanchego
 
-# Maintain compatibility with previous images
-RUN mkdir -p /avalanchego/build
-WORKDIR /avalanchego/build
+ADD fuzzers/fuzz_codec_parse.go ./fuzzers/
+WORKDIR ./fuzzers/
+RUN go install github.com/dvyukov/go-fuzz/go-fuzz@latest github.com/dvyukov/go-fuzz/go-fuzz-build@latest
+RUN go get github.com/dvyukov/go-fuzz/go-fuzz-dep
+RUN go get github.com/ava-labs/avalanchego/ids
+RUN go get github.com/prometheus/client_golang/prometheus
+RUN /root/go/bin/go-fuzz-build -libfuzzer -o fuzzcodecparse.a
+RUN clang -fsanitize=fuzzer fuzzcodecparse.a -o fuzz_codec_parse
 
-# Copy the executables into the container
-COPY --from=builder /build/build/ .
+FROM ubuntu:20.04
+COPY --from=builder /avalanchego/fuzzers/fuzz_codec_parse  /
 
-CMD [ "./avalanchego" ]
+ENTRYPOINT []
+CMD ["/fuzz_codec_parse"]
