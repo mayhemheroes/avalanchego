@@ -18,6 +18,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 	"github.com/ava-labs/avalanchego/vms/rpcchainvm/grpcutils"
 
 	pb "github.com/ava-labs/avalanchego/proto/pb/validatorstate"
@@ -84,16 +85,16 @@ func TestGetMinimumHeight(t *testing.T) {
 
 	// Happy path
 	expectedHeight := uint64(1337)
-	state.server.EXPECT().GetMinimumHeight().Return(expectedHeight, nil)
+	state.server.EXPECT().GetMinimumHeight(gomock.Any()).Return(expectedHeight, nil)
 
-	height, err := state.client.GetMinimumHeight()
+	height, err := state.client.GetMinimumHeight(context.Background())
 	require.NoError(err)
 	require.Equal(expectedHeight, height)
 
 	// Error path
-	state.server.EXPECT().GetMinimumHeight().Return(expectedHeight, errCustom)
+	state.server.EXPECT().GetMinimumHeight(gomock.Any()).Return(expectedHeight, errCustom)
 
-	_, err = state.client.GetMinimumHeight()
+	_, err = state.client.GetMinimumHeight(context.Background())
 	require.Error(err)
 }
 
@@ -107,16 +108,16 @@ func TestGetCurrentHeight(t *testing.T) {
 
 	// Happy path
 	expectedHeight := uint64(1337)
-	state.server.EXPECT().GetCurrentHeight().Return(expectedHeight, nil)
+	state.server.EXPECT().GetCurrentHeight(gomock.Any()).Return(expectedHeight, nil)
 
-	height, err := state.client.GetCurrentHeight()
+	height, err := state.client.GetCurrentHeight(context.Background())
 	require.NoError(err)
 	require.Equal(expectedHeight, height)
 
 	// Error path
-	state.server.EXPECT().GetCurrentHeight().Return(expectedHeight, errCustom)
+	state.server.EXPECT().GetCurrentHeight(gomock.Any()).Return(expectedHeight, errCustom)
 
-	_, err = state.client.GetCurrentHeight()
+	_, err = state.client.GetCurrentHeight(context.Background())
 	require.Error(err)
 }
 
@@ -129,23 +130,44 @@ func TestGetValidatorSet(t *testing.T) {
 	defer state.closeFn()
 
 	// Happy path
-	nodeID1, nodeID2 := ids.GenerateTestNodeID(), ids.GenerateTestNodeID()
-	nodeID1Weight, nodeID2Weight := uint64(1), uint64(2)
-	expectedVdrs := map[ids.NodeID]uint64{
-		nodeID1: nodeID1Weight,
-		nodeID2: nodeID2Weight,
+	sk0, err := bls.NewSecretKey()
+	require.NoError(err)
+	vdr0 := &validators.GetValidatorOutput{
+		NodeID:    ids.GenerateTestNodeID(),
+		PublicKey: bls.PublicFromSecretKey(sk0),
+		Weight:    1,
+	}
+
+	sk1, err := bls.NewSecretKey()
+	require.NoError(err)
+	vdr1 := &validators.GetValidatorOutput{
+		NodeID:    ids.GenerateTestNodeID(),
+		PublicKey: bls.PublicFromSecretKey(sk1),
+		Weight:    2,
+	}
+
+	vdr2 := &validators.GetValidatorOutput{
+		NodeID:    ids.GenerateTestNodeID(),
+		PublicKey: nil,
+		Weight:    3,
+	}
+
+	expectedVdrs := map[ids.NodeID]*validators.GetValidatorOutput{
+		vdr0.NodeID: vdr0,
+		vdr1.NodeID: vdr1,
+		vdr2.NodeID: vdr2,
 	}
 	height := uint64(1337)
 	subnetID := ids.GenerateTestID()
-	state.server.EXPECT().GetValidatorSet(height, subnetID).Return(expectedVdrs, nil)
+	state.server.EXPECT().GetValidatorSet(gomock.Any(), height, subnetID).Return(expectedVdrs, nil)
 
-	vdrs, err := state.client.GetValidatorSet(height, subnetID)
+	vdrs, err := state.client.GetValidatorSet(context.Background(), height, subnetID)
 	require.NoError(err)
 	require.Equal(expectedVdrs, vdrs)
 
 	// Error path
-	state.server.EXPECT().GetValidatorSet(height, subnetID).Return(expectedVdrs, errCustom)
+	state.server.EXPECT().GetValidatorSet(gomock.Any(), height, subnetID).Return(expectedVdrs, errCustom)
 
-	_, err = state.client.GetValidatorSet(height, subnetID)
+	_, err = state.client.GetValidatorSet(context.Background(), height, subnetID)
 	require.Error(err)
 }

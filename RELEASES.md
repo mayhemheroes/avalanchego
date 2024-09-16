@@ -1,5 +1,153 @@
 # Release Notes
 
+## [v1.9.4](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.4)
+
+This version is backwards compatible to [v1.9.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.0). It is optional, but encouraged. The supported plugin version is `20`.
+
+**This version modifies the db format. The db format is compatible with v1.9.3, but not v1.9.2 or earlier. After running a node with v1.9.4 attempting to run a node with a version earlier than v1.9.3 may report a fatal error on startup.**
+
+### PeerList Gossip Optimization
+
+- Added gossip tracking to the `peer` instance to only gossip new `IP`s to a connection
+- Added `PeerListAck` message to report which `TxID`s provided by the `PeerList` message were tracked
+- Added `TxID`s to the `PeerList` message to unique-ify nodeIDs across validation periods
+- Added `TxID` mappings to the gossip tracker
+
+### Validator Set Tracking
+
+- Renamed `GetValidators` to `Get` on the `validators.Manager` interface
+- Removed `Set`, `AddWeight`, `RemoveWeight`, and `Contains` from the `validators.Manager` interface
+- Added `Add` to the `validators.Manager` interface
+- Removed `Set` from the `validators.Set` interface
+- Added `Add` and `Get` to the `validators.Set` interface
+- Modified `validators.Set#Sample` to return `ids.NodeID` rather than `valdiators.Validator`
+- Replaced the `validators.Validator` interface with a struct
+- Added a `BLS` public key field to `validators.Validator`
+- Added a `TxID` field to `validators.Validator`
+- Improved and documented error handling within the `validators.Set` interface
+- Added `BLS` public keys to the result of `GetValidatorSet`
+- Added `BuildBlockWithContext` as an optional VM method to build blocks at a specific P-chain height
+- Added `VerifyWithContext` as an optional block method to verify blocks at a specific P-chain height
+
+### Uptime Tracking
+
+- Added ConnectedSubnet message handling to the chain handler
+- Added SubnetConnector interface and implemented it in the platformvm
+- Added subnet uptimes to p2p `pong` messages
+- Added subnet uptimes to `platform.getCurrentValidators`
+- Added `subnetID` as an argument to `info.Uptime`
+
+### Fixes
+
+- Fixed incorrect context cancellation of escaped contexts from grpc servers
+- Fixed race condition between API initialization and shutdown
+- Fixed race condition between NAT traversal initialization and shutdown
+- Fixed race condition during beacon connection tracking
+- Added race detection to the E2E tests
+- Added additional message and sender tests
+
+### Coreth
+
+- Improved header and logs caching using maximum accepted depth cache
+- Added config option to perform database inspection on startup
+- Added configurable transaction indexing to reduce disk usage
+- Added special case to allow transactions using Nick's Method to bypass API level replay protection
+- Added counter metrics for number of accepted/processed logs
+
+### APIs
+
+- Added indices to the return values of `GetLastAccepted` and `GetContainerByID` on the `indexer` API client
+- Removed unnecessary locking from the `info` API
+
+### Chain Data
+
+- Added `ChainDataDir` to the `snow.Context` to allow blockchains to canonically access disk outside avalanchego's database
+- Added `--chain-data-dir` as a CLI flag to specify the base directory for all `ChainDataDir`s
+
+### Miscellaneous
+
+- Removed `Version` from the `peer.Network` interface
+- Removed `Pong` from the `peer.Network` interface
+- Reduced memory allocations inside the system throttler
+- Added `CChainID` to the `snow.Context`
+- Converted all sorting to utilize generics
+- Converted all set management to utilize generics
+
+## [v1.9.3](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.3)
+
+This version is backwards compatible to [v1.9.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.0). It is optional, but encouraged. The supported plugin version is `19`.
+
+### Tracing
+
+- Added `context.Context` to all `VM` interface functions
+- Added `context.Context` to the `validators.State` interface
+- Added additional message fields to `tracedRouter#HandleInbound`
+- Added `tracedVM` implementations for `block.ChainVM` and `vertex.DAGVM`
+- Added `tracedState` implementation for `validators.State`
+- Added `tracedHandler` implementation for `http.Handler`
+- Added `tracedConsensus` implementations for `snowman.Consensus` and `avalanche.Consensus`
+
+### Fixes
+
+- Fixed incorrect `NodeID` used in registered `AppRequest` timeouts
+- Fixed panic when calling `encdb#NewBatch` after `encdb#Close`
+- Fixed panic when calling `prefixdb#NewBatch` after `prefixdb#Close`
+
+### Configs
+
+- Added `proposerMinBlockDelay` support to subnet configs
+- Added `providedFlags` field to the `initializing node` for easily observing custom node configs
+- Added `--chain-aliases-file` and `--chain-aliases-file-content` CLI flags
+- Added `--proposervm-use-current-height` CLI flag
+
+### Coreth
+
+- Added metric for number of processed and accepted transactions
+- Added wait for state sync goroutines to complete on shutdown
+- Increased go-ethereum dependency to v1.10.26
+- Increased soft cap on transaction size limits
+- Added back isForkIncompatible checks for all existing forks
+- Cleaned up Apricot Phase 6 code
+
+### Linting
+
+- Added `unused-receiver` linter
+- Added `unused-parameter` linter
+- Added `useless-break` linter
+- Added `unhandled-error` linter
+- Added `unexported-naming` linter
+- Added `struct-tag` linter
+- Added `bool-literal-in-expr` linter
+- Added `early-return` linter
+- Added `empty-lines` linter
+- Added `error-lint` linter
+
+### Testing
+
+- Added `scripts/build_fuzz.sh` and initial fuzz tests
+- Added additional `Fx` tests
+- Added additional `messageQueue` tests
+- Fixed `vmRegisterer` tests
+
+### Documentation
+
+- Documented `Database.Put` invariant for `nil` and empty slices
+- Documented avalanchego's versioning scheme
+- Improved `vm.proto` docs
+
+### Miscellaneous
+
+- Added peer gossip tracker
+- Added `avalanche_P_vm_time_until_unstake` and `avalanche_P_vm_time_until_unstake_subnet` metrics
+- Added `keychain.NewLedgerKeychainFromIndices`
+- Removed usage of `Temporary` error handling after `listener#Accept`
+- Removed `Parameters` from all `Consensus` interfaces
+- Updated `avalanche-network-runner` to `v1.3.0`
+- Added `ids.BigBitSet` to extend `ids.BitSet64` for arbitrarily large sets
+- Added support for parsing future subnet uptime tracking data to the P-chain's state implementation
+- Increased validator set cache size
+- Added `avax.UTXOIDFromString` helper for managing `UTXOID`s more easily
+
 ## [v1.9.2](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.2)
 
 This version is backwards compatible to [v1.9.0](https://github.com/ava-labs/avalanchego/releases/tag/v1.9.0). It is optional, but encouraged. The supported plugin version is `19`.

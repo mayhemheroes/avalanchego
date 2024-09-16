@@ -10,6 +10,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 
 	pb "github.com/ava-labs/avalanchego/proto/pb/validatorstate"
 )
@@ -25,23 +26,23 @@ func NewServer(state validators.State) *Server {
 	return &Server{state: state}
 }
 
-func (s *Server) GetMinimumHeight(ctx context.Context, msg *emptypb.Empty) (*pb.GetMinimumHeightResponse, error) {
-	height, err := s.state.GetMinimumHeight()
+func (s *Server) GetMinimumHeight(ctx context.Context, _ *emptypb.Empty) (*pb.GetMinimumHeightResponse, error) {
+	height, err := s.state.GetMinimumHeight(ctx)
 	return &pb.GetMinimumHeightResponse{Height: height}, err
 }
 
-func (s *Server) GetCurrentHeight(ctx context.Context, msg *emptypb.Empty) (*pb.GetCurrentHeightResponse, error) {
-	height, err := s.state.GetCurrentHeight()
+func (s *Server) GetCurrentHeight(ctx context.Context, _ *emptypb.Empty) (*pb.GetCurrentHeightResponse, error) {
+	height, err := s.state.GetCurrentHeight(ctx)
 	return &pb.GetCurrentHeightResponse{Height: height}, err
 }
 
-func (s *Server) GetValidatorSet(_ context.Context, req *pb.GetValidatorSetRequest) (*pb.GetValidatorSetResponse, error) {
+func (s *Server) GetValidatorSet(ctx context.Context, req *pb.GetValidatorSetRequest) (*pb.GetValidatorSetResponse, error) {
 	subnetID, err := ids.ToID(req.SubnetId)
 	if err != nil {
 		return nil, err
 	}
 
-	vdrs, err := s.state.GetValidatorSet(req.Height, subnetID)
+	vdrs, err := s.state.GetValidatorSet(ctx, req.Height, subnetID)
 	if err != nil {
 		return nil, err
 	}
@@ -51,12 +52,15 @@ func (s *Server) GetValidatorSet(_ context.Context, req *pb.GetValidatorSetReque
 	}
 
 	i := 0
-	for nodeID, weight := range vdrs {
-		nodeID := nodeID
-		resp.Validators[i] = &pb.Validator{
-			NodeId: nodeID[:],
-			Weight: weight,
+	for _, vdr := range vdrs {
+		vdrPB := &pb.Validator{
+			NodeId: vdr.NodeID[:],
+			Weight: vdr.Weight,
 		}
+		if vdr.PublicKey != nil {
+			vdrPB.PublicKey = bls.PublicKeyToBytes(vdr.PublicKey)
+		}
+		resp.Validators[i] = vdrPB
 		i++
 	}
 	return resp, nil

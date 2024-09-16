@@ -5,11 +5,13 @@ package chains
 
 import (
 	"sync"
+	"time"
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/consensus/avalanche"
 	"github.com/ava-labs/avalanchego/snow/engine/common"
 	"github.com/ava-labs/avalanchego/snow/networking/sender"
+	"github.com/ava-labs/avalanchego/utils/set"
 )
 
 var _ Subnet = (*subnet)(nil)
@@ -31,12 +33,17 @@ type SubnetConfig struct {
 	// ValidatorOnly indicates that this Subnet's Chains are available to only subnet validators.
 	ValidatorOnly       bool                 `json:"validatorOnly" yaml:"validatorOnly"`
 	ConsensusParameters avalanche.Parameters `json:"consensusParameters" yaml:"consensusParameters"`
+
+	// ProposerMinBlockDelay is the minimum delay this node will enforce when
+	// building a snowman++ block.
+	// TODO: Remove this flag once all VMs throttle their own block production.
+	ProposerMinBlockDelay time.Duration `json:"proposerMinBlockDelay" yaml:"proposerMinBlockDelay"`
 }
 
 type subnet struct {
 	lock             sync.RWMutex
-	bootstrapping    ids.Set
-	bootstrapped     ids.Set
+	bootstrapping    set.Set[ids.ID]
+	bootstrapped     set.Set[ids.ID]
 	once             sync.Once
 	bootstrappedSema chan struct{}
 }

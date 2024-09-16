@@ -10,6 +10,7 @@ import (
 
 	"github.com/ava-labs/avalanchego/ids"
 	"github.com/ava-labs/avalanchego/snow/validators"
+	"github.com/ava-labs/avalanchego/utils/crypto/bls"
 
 	pb "github.com/ava-labs/avalanchego/proto/pb/validatorstate"
 )
@@ -24,24 +25,28 @@ func NewClient(client pb.ValidatorStateClient) *Client {
 	return &Client{client: client}
 }
 
-func (c *Client) GetMinimumHeight() (uint64, error) {
-	resp, err := c.client.GetMinimumHeight(context.Background(), &emptypb.Empty{})
+func (c *Client) GetMinimumHeight(ctx context.Context) (uint64, error) {
+	resp, err := c.client.GetMinimumHeight(ctx, &emptypb.Empty{})
 	if err != nil {
 		return 0, err
 	}
 	return resp.Height, nil
 }
 
-func (c *Client) GetCurrentHeight() (uint64, error) {
-	resp, err := c.client.GetCurrentHeight(context.Background(), &emptypb.Empty{})
+func (c *Client) GetCurrentHeight(ctx context.Context) (uint64, error) {
+	resp, err := c.client.GetCurrentHeight(ctx, &emptypb.Empty{})
 	if err != nil {
 		return 0, err
 	}
 	return resp.Height, nil
 }
 
-func (c *Client) GetValidatorSet(height uint64, subnetID ids.ID) (map[ids.NodeID]uint64, error) {
-	resp, err := c.client.GetValidatorSet(context.Background(), &pb.GetValidatorSetRequest{
+func (c *Client) GetValidatorSet(
+	ctx context.Context,
+	height uint64,
+	subnetID ids.ID,
+) (map[ids.NodeID]*validators.GetValidatorOutput, error) {
+	resp, err := c.client.GetValidatorSet(ctx, &pb.GetValidatorSetRequest{
 		Height:   height,
 		SubnetId: subnetID[:],
 	})
@@ -49,13 +54,24 @@ func (c *Client) GetValidatorSet(height uint64, subnetID ids.ID) (map[ids.NodeID
 		return nil, err
 	}
 
-	vdrs := make(map[ids.NodeID]uint64, len(resp.Validators))
+	vdrs := make(map[ids.NodeID]*validators.GetValidatorOutput, len(resp.Validators))
 	for _, validator := range resp.Validators {
 		nodeID, err := ids.ToNodeID(validator.NodeId)
 		if err != nil {
 			return nil, err
 		}
-		vdrs[nodeID] = validator.Weight
+		var publicKey *bls.PublicKey
+		if len(validator.PublicKey) > 0 {
+			publicKey, err = bls.PublicKeyFromBytes(validator.PublicKey)
+			if err != nil {
+				return nil, err
+			}
+		}
+		vdrs[nodeID] = &validators.GetValidatorOutput{
+			NodeID:    nodeID,
+			PublicKey: publicKey,
+			Weight:    validator.Weight,
+		}
 	}
 	return vdrs, nil
 }

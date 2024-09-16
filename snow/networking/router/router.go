@@ -16,6 +16,7 @@ import (
 	"github.com/ava-labs/avalanchego/snow/networking/handler"
 	"github.com/ava-labs/avalanchego/snow/networking/timeout"
 	"github.com/ava-labs/avalanchego/utils/logging"
+	"github.com/ava-labs/avalanchego/utils/set"
 )
 
 // Router routes consensus messages to the Handler of the consensus
@@ -29,15 +30,15 @@ type Router interface {
 		log logging.Logger,
 		timeouts timeout.Manager,
 		shutdownTimeout time.Duration,
-		criticalChains ids.Set,
-		whiteListedSubnets ids.Set,
+		criticalChains set.Set[ids.ID],
+		whiteListedSubnets set.Set[ids.ID],
 		onFatal func(exitCode int),
 		healthConfig HealthConfig,
 		metricsNamespace string,
 		metricsRegisterer prometheus.Registerer,
 	) error
-	Shutdown()
-	AddChain(chain handler.Handler)
+	Shutdown(context.Context)
+	AddChain(ctx context.Context, chain handler.Handler)
 	health.Checker
 }
 
